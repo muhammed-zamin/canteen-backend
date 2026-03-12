@@ -1,0 +1,155 @@
+<!DOCTYPE html>
+<html>
+<head>
+<title>Kitchen Dashboard</title>
+
+<style>
+body{
+    font-family: Arial;
+    background:#111;
+    color:white;
+}
+
+.order{
+    border:2px solid white;
+    padding:15px;
+    margin:15px;
+}
+
+.status{
+    padding:4px 10px;
+    border-radius:6px;
+    font-weight:bold;
+}
+
+.pending{
+    background:red;
+}
+
+.cooking{
+    background:orange;
+}
+
+.ready{
+    background:green;
+}
+
+.served{
+    background:gray;
+}
+
+button{
+    margin:5px;
+    padding:6px 10px;
+    cursor:pointer;
+}
+
+</style>
+
+</head>
+
+<body>
+<form style="display:none">{% csrf_token %}</form>
+
+<h1>Kitchen Orders</h1>
+
+<div id="orders"></div>
+
+<script>
+
+function getCookie(name) {
+    let cookieValue = null;
+    if (document.cookie && document.cookie !== "") {
+        const cookies = document.cookie.split(";");
+        for (let i = 0; i < cookies.length; i++) {
+            const cookie = cookies[i].trim();
+            if (cookie.substring(0, name.length + 1) === (name + "=")) {
+                cookieValue = decodeURIComponent(cookie.substring(name.length + 1));
+                break;
+            }
+        }
+    }
+    return cookieValue;
+}
+
+function loadOrders(){
+
+fetch("/myapp/api/kitchen/orders/")
+.then(response => response.json())
+.then(data => {
+
+let html="";
+
+data.forEach(order => {
+
+html+=`
+<div class="order">
+
+<h2>Table ${order.table_number}</h2>
+
+<p>Status:
+<span class="status ${order.status}">
+${order.status.toUpperCase()}
+</span>
+</p>
+
+<ul>
+`;
+
+order.items.forEach(item=>{
+html+=`<li>${item.food_name} x ${item.quantity}</li>`
+});
+
+html+=`
+</ul>
+
+<button onclick="updateStatus(${order.id}, 'cooking')">Cooking</button>
+<button onclick="updateStatus(${order.id}, 'ready')">Ready</button>
+<button onclick="updateStatus(${order.id}, 'served')">Served</button>
+
+</div>
+`;
+
+});
+
+document.getElementById("orders").innerHTML=html;
+
+});
+
+}
+
+function updateStatus(orderId, status){
+
+console.log("Updating order", orderId, status);
+
+const csrftoken = getCookie("csrftoken");
+
+fetch(`/myapp/api/order/${orderId}/status/`, {
+method: "POST",
+headers: {
+"Content-Type": "application/json",
+"X-CSRFToken": csrftoken
+},
+body: JSON.stringify({
+status: status
+})
+})
+.then(res => res.json())
+.then(data => {
+
+console.log(data);
+
+loadOrders();
+
+});
+
+}
+
+setInterval(loadOrders,3000);
+
+loadOrders();
+
+</script>
+
+</body>
+</html>
