@@ -8,55 +8,113 @@ body{
     font-family: Arial;
     background:#111;
     color:white;
+    margin:0;
 }
 
-.order{
-    border:2px solid white;
+/* Sticky header */
+header{
+    position: sticky;
+    top: 0;
+    background:#2d2c2c;
     padding:15px;
-    margin:15px;
-}
-
-.status{
-    padding:4px 10px;
-    border-radius:6px;
+    font-size:22px;
     font-weight:bold;
+    z-index:100;
 }
 
-.pending{
-    background:red;
+/* Top controls */
+.controls{
+    padding:10px;
 }
 
-.cooking{
-    background:orange;
+/* Board layout */
+.board{
+    display:flex;
+    gap:15px;
+    padding:15px;
 }
 
-.ready{
-    background:green;
+/* Columns */
+.column{
+    flex:1;
+    background:#1f1f1f;
+    padding:10px;
+    border-radius:10px;
 }
 
-.served{
-    background:gray;
+.column h2{
+    text-align:center;
 }
 
+/* Order cards */
+.order{
+    background:#2b2b2b;
+    padding:10px;
+    margin:10px 0;
+    border-radius:8px;
+}
+
+/* Buttons */
 button{
-    margin:5px;
-    padding:6px 10px;
+    margin:5px 3px;
+    padding:5px 8px;
     cursor:pointer;
+    border:none;
+    border-radius:5px;
 }
+
+/* Status colors */
+.pending{background:#facc15;}
+.cooking{background:#fb923c;}
+.ready{background:#22c55e;color:white;}
+.served{background:#6b7280;color:white;}
 
 </style>
-
 </head>
 
 <body>
+
 <form style="display:none">{% csrf_token %}</form>
 
-<h1>Kitchen Orders</h1>
+<header>
+  Kitchen Orders
 
-<div id="orders"></div>
+  <button onclick="window.location.href='/myapp/kitchen/manage-menu/'">
+  Manage Menu
+</button>
+<div class="controls">
+  <button onclick="window.location.href='/myapp/kitchen/sales-page/'">
+  View Daily Sales
+</button>
+</div>
+</header>
+
+
+  <div id="salesReport"></div>
+
+
+<div class="board">
+
+  <div class="column">
+    <h2>🟡 Pending</h2>
+    <div id="pending"></div>
+  </div>
+
+  <div class="column">
+    <h2>🟠 Cooking</h2>
+    <div id="cooking"></div>
+  </div>
+
+  <div class="column">
+    <h2>🟢 Ready</h2>
+    <div id="ready"></div>
+  </div>
+
+</div>
 
 <script>
 
+/* CSRF helper */
 function getCookie(name) {
     let cookieValue = null;
     if (document.cookie && document.cookie !== "") {
@@ -72,55 +130,55 @@ function getCookie(name) {
     return cookieValue;
 }
 
+/* Load orders */
 function loadOrders(){
 
 fetch("/myapp/api/kitchen/orders/")
-.then(response => response.json())
+.then(res => res.json())
 .then(data => {
 
-let html="";
+document.getElementById("pending").innerHTML = "";
+document.getElementById("cooking").innerHTML = "";
+document.getElementById("ready").innerHTML = "";
 
-data.forEach(order => {
+/* newest first */
+data.reverse().forEach(order => {
 
-html+=`
-<div class="order">
-
-<h2>Table ${order.table_number}</h2>
-
-<p>Status:
-<span class="status ${order.status}">
-${order.status.toUpperCase()}
-</span>
-</p>
-
-<ul>
-`;
-
+let items = "";
 order.items.forEach(item=>{
-html+=`<li>${item.food_name} x ${item.quantity}</li>`
+    items += `<li>${item.food_name} x ${item.quantity}</li>`;
 });
 
-html+=`
-</ul>
+let card = `
+<div class="order">
+  <h3>Table ${order.table_number}</h3>
+  <ul>${items}</ul>
 
-<button onclick="updateStatus(${order.id}, 'cooking')">Cooking</button>
-<button onclick="updateStatus(${order.id}, 'ready')">Ready</button>
-<button onclick="updateStatus(${order.id}, 'served')">Served</button>
-
+  <button onclick="updateStatus(${order.id}, 'cooking')" class="cooking">Cooking</button>
+  <button onclick="updateStatus(${order.id}, 'ready')" class="ready">Ready</button>
+  <button onclick="updateStatus(${order.id}, 'served')" class="served">Served</button>
 </div>
 `;
 
-});
+/* place in correct column */
+if(order.status === "pending"){
+    document.getElementById("pending").innerHTML += card;
+}
+else if(order.status === "cooking"){
+    document.getElementById("cooking").innerHTML += card;
+}
+else if(order.status === "ready"){
+    document.getElementById("ready").innerHTML += card;
+}
 
-document.getElementById("orders").innerHTML=html;
+});
 
 });
 
 }
 
+/* Update status */
 function updateStatus(orderId, status){
-
-console.log("Updating order", orderId, status);
 
 const csrftoken = getCookie("csrftoken");
 
@@ -130,23 +188,30 @@ headers: {
 "Content-Type": "application/json",
 "X-CSRFToken": csrftoken
 },
-body: JSON.stringify({
-status: status
+body: JSON.stringify({ status })
 })
-})
-.then(res => res.json())
-.then(data => {
-
-console.log(data);
-
-loadOrders();
-
-});
+.then(() => loadOrders());
 
 }
 
-setInterval(loadOrders,3000);
+/* Sales report */
+async function showSales(){
 
+const res = await fetch("/myapp/api/kitchen/sales/");
+const data = await res.json();
+
+document.getElementById("salesReport").innerHTML = `
+<div style="background:white;color:black;padding:10px;margin-top:10px;border-radius:8px">
+  <h3>Daily Sales</h3>
+  <p>Total Orders: ${data.orders}</p>
+  <p>Total Revenue: ₹${data.sales}</p>
+</div>
+`;
+
+}
+
+/* Auto refresh */
+setInterval(loadOrders, 3000);
 loadOrders();
 
 </script>

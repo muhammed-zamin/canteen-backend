@@ -39,7 +39,17 @@ class OrderSerializer(serializers.ModelSerializer):
         items_data = validated_data.pop("items")
         order = Order.objects.create(**validated_data)
 
+        total = 0  # ✅ calculate total
+
         for item in items_data:
+            food = item["food_item"]
+            qty = item["quantity"]
+
             OrderItem.objects.create(order=order, **item)
+
+            total += food.price * qty  # ✅ sum price
+
+        order.total_price = total  # ✅ save total
+        order.save()
 
         return order

@@ -1,0 +1,293 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>Manage Menu</title>
+  <style>
+    body {
+      font-family: Arial, sans-serif;
+      background: #111;
+      color: white;
+      padding: 20px;
+      margin: 0;
+    }
+    header {
+      position: sticky;
+      top: 0;
+      background: #222;
+      padding: 15px;
+      font-size: 24px;
+      font-weight: bold;
+      text-align: center;
+      z-index: 100;
+      border-bottom: 1px solid #444;
+    }
+    .container {
+      max-width: 900px;
+      margin: 0 auto;
+    }
+    h3 {
+      margin-top: 30px;
+      color: #4caf50;
+    }
+    .card {
+      border: 1px solid #555;
+      padding: 18px;
+      margin: 12px 0;
+      border-radius: 10px;
+      background: #1a1a1a;
+    }
+    input, textarea {
+      display: block;
+      width: 100%;
+      margin: 8px 0;
+      padding: 10px;
+      border-radius: 5px;
+      border: 1px solid #666;
+      background: #222;
+      color: white;
+      box-sizing: border-box;
+    }
+    button {
+      margin: 6px 8px 6px 0;
+      padding: 8px 14px;
+      border: none;
+      border-radius: 5px;
+      cursor: pointer;
+      font-weight: bold;
+    }
+    .btn-add    { background: #4caf50; color: white; }
+    .btn-save   { background: #2196f3; color: white; }
+    .btn-cancel { background: #777;    color: white; }
+    .btn-delete { background: #f44336; color: white; }
+    .btn-toggle { background: #ff9800; color: white; }
+    .status-available   { color: #8bc34a; font-weight: bold; }
+    .status-unavailable { color: #f44336; font-weight: bold; }
+    .actions { margin-top: 12px; }
+  </style>
+</head>
+<body>
+
+<header>Manage Menu</header>
+
+<div class="container">
+
+  <!-- Add New Item -->
+  <h3>Add New Item</h3>
+  <input id="name"        placeholder="Item name" required>
+  <input id="price"       placeholder="Price (₹)" type="number" step="0.01" min="0" required>
+  <textarea id="desc"     placeholder="Description" rows="3"></textarea>
+  <button class="btn-add" onclick="addItem()">Add Item</button>
+
+  <hr style="border-color:#444; margin:30px 0;">
+
+  <!-- Menu List -->
+  <h3>Current Menu Items</h3>
+  <div id="menu"></div>
+
+</div>
+
+<script>
+// ────────────────────────────────────────────────
+//  Helper: Get CSRF token from cookies
+// ────────────────────────────────────────────────
+function getCsrfToken() {
+  return document.cookie
+    .split('; ')
+    .find(row => row.startsWith('csrftoken='))
+    ?.split('=')[1] || '';
+}
+
+// ────────────────────────────────────────────────
+//  Common fetch options with CSRF + credentials
+// ────────────────────────────────────────────────
+function getFetchOptions(method = 'GET', body = null) {
+  const options = {
+    method,
+    credentials: 'include',           // ← very important for session cookies
+    headers: {
+      'Content-Type': 'application/json',
+      'X-CSRFToken': getCsrfToken(),  // ← prevents 403
+    }
+  };
+  if (body) options.body = JSON.stringify(body);
+  return options;
+}
+
+// ────────────────────────────────────────────────
+//  Load all menu items
+// ────────────────────────────────────────────────
+function loadMenu() {
+  fetch("/myapp/api/food/", getFetchOptions('GET'))
+    .then(res => {
+      if (!res.ok) throw new Error(`HTTP ${res.status}`);
+      return res.json();
+    })
+    .then(data => {
+      let html = "";
+      data.forEach(item => {
+        html += `
+          <div class="card" id="item-${item.id}">
+            <div id="view-${item.id}">
+              <h3>${item.name}</h3>
+              <p><strong>₹${Number(item.price).toFixed(2)}</strong></p>
+              <p>${item.description || '<i>No description</i>'}</p>
+              <p>Status: <span class="${item.is_available ? 'status-available' : 'status-unavailable'}">
+                ${item.is_available ? 'Available' : 'Not Available'}
+              </span></p>
+              <div class="actions">
+                <button onclick="startEdit(${item.id})">Edit</button>
+                <button class="btn-toggle" onclick="toggleAvailability(${item.id}, ${!item.is_available})">
+                  ${item.is_available ? 'Mark Unavailable' : 'Mark Available'}
+                </button>
+                <button class="btn-delete" onclick="deleteItem(${item.id})">Delete</button>
+              </div>
+            </div>
+          </div>
+        `;
+      });
+      document.getElementById("menu").innerHTML = html || "<p style='color:#888'>No items yet.</p>";
+    })
+    .catch(err => {
+      console.error(err);
+      alert("Failed to load menu: " + err.message);
+    });
+}
+
+// ────────────────────────────────────────────────
+//  Add new item
+// ────────────────────────────────────────────────
+function addItem() {
+  const name  = document.getElementById("name").value.trim();
+  const price = document.getElementById("price").value;
+  const desc  = document.getElementById("desc").value.trim();
+
+  if (!name || !price) {
+    alert("Name and price are required.");
+    return;
+  }
+
+  fetch("/myapp/api/food/", getFetchOptions('POST', {
+    name,
+    price: parseFloat(price),
+    description: desc,
+    is_available: true
+  }))
+  .then(res => {
+    if (!res.ok) throw new Error(`HTTP ${res.status}`);
+    return res.json();
+  })
+  .then(() => {
+    document.getElementById("name").value = "";
+    document.getElementById("price").value = "";
+    document.getElementById("desc").value = "";
+    loadMenu();
+  })
+  .catch(err => {
+    console.error(err);
+    alert("Failed to add item: " + err.message);
+  });
+}
+
+// ────────────────────────────────────────────────
+//  Delete item
+// ────────────────────────────────────────────────
+function deleteItem(id) {
+  if (!confirm("Delete this item permanently?")) return;
+
+  fetch(`/myapp/api/food/${id}/`, getFetchOptions('DELETE'))
+    .then(res => {
+      if (!res.ok) throw new Error(`HTTP ${res.status}`);
+      loadMenu();
+    })
+    .catch(err => {
+      console.error(err);
+      alert("Delete failed: " + err.message);
+    });
+}
+
+// ────────────────────────────────────────────────
+//  Toggle availability
+// ────────────────────────────────────────────────
+function toggleAvailability(id, newStatus) {
+  fetch(`/myapp/api/food/${id}/`, getFetchOptions('PATCH', {
+    is_available: newStatus
+  }))
+  .then(res => {
+    if (!res.ok) throw new Error(`HTTP ${res.status}`);
+    loadMenu();
+  })
+  .catch(err => {
+    console.error(err);
+    alert("Update failed: " + err.message);
+  });
+}
+
+// ────────────────────────────────────────────────
+//  Start editing (show form)
+// ────────────────────────────────────────────────
+function startEdit(id) {
+  const view = document.getElementById(`view-${id}`);
+  if (!view) return;
+
+  // Get current values (simple parsing – improve if needed)
+  const nameEl = view.querySelector('h3');
+  const priceEl = view.querySelector('p strong');
+  const descEl = view.querySelector('p:nth-child(3)');
+
+  const name = nameEl.textContent.trim();
+  const price = priceEl.textContent.replace('₹','').trim();
+  const desc = descEl.textContent.trim() === 'No description' ? '' : descEl.textContent.trim();
+
+  view.innerHTML = `
+    <input id="edit-name-${id}" value="${name.replace(/"/g,'&quot;')}">
+    <input id="edit-price-${id}" type="number" step="0.01" value="${price}">
+    <textarea id="edit-desc-${id}" rows="3">${desc.replace(/</g,'&lt;')}</textarea>
+    <div class="actions">
+      <button class="btn-save"   onclick="saveEdit(${id})">Save</button>
+      <button class="btn-cancel" onclick="cancelEdit(${id})">Cancel</button>
+    </div>
+  `;
+}
+
+// ────────────────────────────────────────────────
+//  Save edited item
+// ────────────────────────────────────────────────
+function saveEdit(id) {
+  const name  = document.getElementById(`edit-name-${id}`).value.trim();
+  const price = document.getElementById(`edit-price-${id}`).value;
+  const desc  = document.getElementById(`edit-desc-${id}`).value.trim();
+
+  if (!name || !price) {
+    alert("Name and price are required.");
+    return;
+  }
+
+  fetch(`/myapp/api/food/${id}/`, getFetchOptions('PATCH', {
+    name,
+    price: parseFloat(price),
+    description: desc
+  }))
+  .then(res => {
+    if (!res.ok) throw new Error(`HTTP ${res.status}`);
+    loadMenu();
+  })
+  .catch(err => {
+    console.error(err);
+    alert("Save failed: " + err.message);
+  });
+}
+
+// ────────────────────────────────────────────────
+//  Cancel edit → reload view
+// ────────────────────────────────────────────────
+function cancelEdit(id) {
+  loadMenu();   // simplest way – reloads everything
+}
+
+// Load menu when page opens
+loadMenu();
+
+</script>
+</body>
+</html>

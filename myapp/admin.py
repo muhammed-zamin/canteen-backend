@@ -4,7 +4,7 @@ from .models import FoodItem, Order, OrderItem
 
 class FoodItemAdmin(admin.ModelAdmin):
     list_display = ('id', 'name', 'price', 'is_available')
-
+    fields = ('name', 'price','food_type','is_available','description')
 
 class OrderAdmin(admin.ModelAdmin):
     list_display = ('id', 'customer_name', 'table_number', 'status', 'order_time')

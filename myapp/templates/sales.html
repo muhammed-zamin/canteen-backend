@@ -1,0 +1,79 @@
+<!DOCTYPE html>
+<html>
+<head>
+<title>Sales Report</title>
+
+<style>
+body{
+    font-family: Arial;
+    background:#111;
+    color:white;
+    text-align:center;
+    padding:20px;
+}
+
+.container{
+    max-width:500px;
+    margin:auto;
+}
+
+.card{
+    background:#1f1f1f;
+    padding:20px;
+    border-radius:10px;
+    margin-top:20px;
+}
+
+input, button{
+    padding:10px;
+    margin:10px;
+    border-radius:6px;
+    border:none;
+}
+
+button{
+    background:#22c55e;
+    cursor:pointer;
+}
+</style>
+</head>
+
+<body>
+
+<div class="container">
+    <h1>📊 Sales Report</h1>
+
+    <input type="date" id="datePicker" />
+    <br>
+    <button onclick="getSales()">View Report</button>
+
+    <div id="result"></div>
+</div>
+
+<script>
+
+async function getSales(){
+
+    const date = document.getElementById("datePicker").value;
+
+    if(!date){
+        alert("Select a date");
+        return;
+    }
+
+    const res = await fetch(`/myapp/api/kitchen/sales/?date=${date}`);
+    const data = await res.json();
+
+    document.getElementById("result").innerHTML = `
+        <div class="card">
+            <h2>Report for ${date}</h2>
+            <p>Total Orders: <b>${data.orders}</b></p>
+            <p>Total Revenue: <b>₹${data.sales}</b></p>
+        </div>
+    `;
+}
+
+</script>
+
+</body>
+</html>
